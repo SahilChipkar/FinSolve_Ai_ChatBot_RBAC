@@ -1,0 +1,56 @@
+.
+├── data/
+│   ├── engineering/
+│   │   └── engineering_master_doc.md
+│   ├── finance/
+│   │   ├── financial_summary.md
+│   │   └── quarterly_financial_report.md
+│   ├── general/
+│   │   └── employee_handbook.md
+│   ├── hr/
+│   │   └── hr_data.csv
+│   └── marketing/
+│       ├── market_report_q4_2024.md
+│       ├── marketing_report_2024.md
+│       ├── marketing_report_q1_2024.md
+│       ├── marketing_report_q2_2024.md
+│       ├── marketing_report_q3_2024.md
+│
+├── chroma_db/
+│   └── # ChromaDB will store its persistent data here after ingestion
+│
+├── finsolve_users.db           # NEW: SQLite database file for user authentication and roles
+│
+├── src/
+│   ├── __init__.py               # Makes src a Python package
+│   ├── main.py                   # FastAPI application entry point (now uses SQLite for users)
+│   ├── streamlit_app.py          # Streamlit frontend application (will have admin section)
+│   │
+│   ├── core/                     # Core chatbot logic components
+│   │   ├── __init__.py
+│   │   ├── embedding.py          # Handles Nomic Embed Text (via Ollama) embedding generation
+│   │   ├── llm.py                # Handles Gemma3 (via Ollama) LLM calls
+│   │   ├── vector_store.py       # Manages ChromaDB client and interactions (add, query)
+│   │   ├── rbac.py               # Defines roles, permissions, and filter generation logic
+│   │   └── rag_chain.py          # Orchestrates the RAG flow: embedding query, retrieval, LLM call
+│   │
+│   ├── data_ingestion/           # Scripts for processing raw data into ChromaDB
+│   │   ├── __init__.py
+│   │   ├── ingest.py             # Main script to run the data ingestion process
+│   │   ├── document_loaders.py   # Helpers for loading different file types (.md, .csv)
+│   │   └── text_splitter.py      # Utility for chunking text content
+│   │
+│   └── admin/                    # NEW (Conceptual): Future Admin Panel related logic/pages
+│       ├── __init__.py
+│       ├── schemas.py            # Pydantic models for admin operations (e.g., UserCreate, UserUpdate)
+│       └── crud.py               # Database operations (Create/Read/Update/Delete users)
+│       └── routes.py             # FastAPI admin routes (e.g., /admin/users)
+│       └── admin_ui.py           # Streamlit components for admin panel (might integrate into streamlit_app.py or be separate page)
+│
+├── .streamlit/                   # Streamlit configuration for theme
+│   └── config.toml
+│
+├── .env                          # Environment variables (e.g., OLLAMA_HOST, SECRET_KEY, ADMIN_INITIAL_PASSWORD)
+├── requirements.txt              # Python dependencies for the project
+├── README.md                     # Project documentation, setup, usage, and architecture explanation
+└── run.sh                        # A simple script to start FastAPI and Streamlit

@@ -1,0 +1,30 @@
+# FastAPI and Uvicorn for the backend API
+fastapi==0.111.0
+uvicorn==0.30.1
+
+# Streamlit for the frontend UI
+streamlit==1.36.0
+
+# Ollama Python client for interacting with Ollama models (Gemma3, Nomic Embed Text)
+ollama==0.2.1
+
+# ChromaDB for the vector store
+chromadb==0.5.3
+
+# For parsing .docx and .pdf files (if you have them, otherwise remove/adjust)
+python-docx==1.1.0
+pypdf==4.2.0
+
+# For handling CSV files (like hr_data.csv)
+pandas==2.2.2
+
+# For handling environment variables
+python-dotenv==1.0.1
+
+# For robust text splitting (e.g., MarkdownTextSplitter)
+langchain==0.2.5
+langchain-core==0.2.11
+langchain-text-splitters==0.2.1
+
+# For creating secure password hashes (for mock authentication)
+passlib[bcrypt]==1.7.4
