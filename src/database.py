@@ -1,15 +1,22 @@
 # src/database.py
 
 import os
-from sqlalchemy import create_engine, Column, Integer, String
+from sqlalchemy import create_engine, Column, Integer, String, ForeignKey, Text, DateTime
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, Session
-import hashlib # For password hashing
+from sqlalchemy.orm import sessionmaker, Session, relationship
+from passlib.context import CryptContext
+from dotenv import load_dotenv
+from datetime import datetime
+
+# Load environment variables for ADMIN_INITIAL_PASSWORD
+load_dotenv()
 
 # Define the path for the SQLite database file
-# It will be created in your project root
 DATABASE_FILE = "finsolve_users.db"
 SQLALCHEMY_DATABASE_URL = f"sqlite:///{DATABASE_FILE}"
+
+# Initialize CryptContext for password hashing (using bcrypt algorithm)
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # SQLAlchemy Base for declarative models
 Base = declarative_base()
@@ -27,19 +34,59 @@ class User(Base):
     role = Column(String, default="Employee Level") # e.g., "Finance Team", "Admin", "Employee Level"
     department = Column(String, default="general") # e.g., "finance", "marketing", "hr", "engineering", "general", "all"
 
+    # Define relationships
+    chat_sessions = relationship("ChatSession", back_populates="user", cascade="all, delete-orphan") # NEW
+    # Note: ChatMessage relationship removed from User, as messages now link to sessions, not directly to users
+
     def __repr__(self):
         return f"<User(username='{self.username}', role='{self.role}')>"
 
+class ChatSession(Base): # NEW: ChatSession Model
+    """
+    SQLAlchemy model for storing individual chat sessions/conversations.
+    """
+    __tablename__ = "chat_sessions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    title = Column(String, default="New Chat") # Title of the chat session, like "Q1 Finance Report"
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    user = relationship("User", back_populates="chat_sessions")
+    messages = relationship("ChatMessage", back_populates="session", cascade="all, delete-orphan") # NEW
+
+    def __repr__(self):
+        return f"<ChatSession(id={self.id}, user_id={self.user_id}, title='{self.title}')>"
+
+class ChatMessage(Base):
+    """
+    SQLAlchemy model for storing chat history messages.
+    Each message now belongs to a specific ChatSession.
+    """
+    __tablename__ = "chat_messages"
+
+    id = Column(Integer, primary_key=True, index=True)
+    session_id = Column(Integer, ForeignKey("chat_sessions.id")) # MODIFIED: Link to ChatSession
+    user_id = Column(Integer, ForeignKey("users.id")) # Keep user_id for direct filtering if needed, though session_id provides user context
+
+    sender = Column(String) # 'user' or 'bot'
+    message_text = Column(Text) # The content of the message
+    timestamp = Column(DateTime, default=datetime.utcnow) # When the message was sent
+
+    # Define relationship to ChatSession
+    session = relationship("ChatSession", back_populates="messages") # NEW
+    # No direct relationship to User here, as it's handled via session
+
+
+    def __repr__(self):
+        return f"<ChatMessage(session_id={self.session_id}, sender='{self.sender}', timestamp='{self.timestamp}')>"
+
+
 # --- Database Engine and Session ---
-# create_engine: Creates a SQLAlchemy engine. `check_same_thread=False` is needed for SQLite
-# with FastAPI because FastAPI uses multiple threads for requests, and SQLite by default
-# doesn't allow cross-thread database access.
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
 )
 
-# SessionLocal: Each instance of SessionLocal is a database session.
-# The `autocommit=False` and `autoflush=False` settings are standard.
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 # --- Dependency to get DB session for FastAPI ---
@@ -56,11 +103,12 @@ def get_db():
 
 # --- Password Hashing Function ---
 def get_password_hash(password: str) -> str:
-    """Hashes a password using SHA256."""
-    # In a production application, use a stronger hashing algorithm like bcrypt
-    # from passlib.hash import bcrypt
-    # return bcrypt.hash(password)
-    return hashlib.sha256(password.encode('utf-8')).hexdigest()
+    """Hashes a password using bcrypt."""
+    return pwd_context.hash(password)
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    """Verifies a plain password against a hashed password using bcrypt."""
+    return pwd_context.verify(plain_password, hashed_password)
 
 # --- Initial Database Setup (for first run) ---
 def create_db_and_tables():
@@ -68,7 +116,9 @@ def create_db_and_tables():
     Creates all defined tables in the database if they don't already exist.
     Also, seeds initial admin user if no users exist.
     """
-    Base.metadata.create_all(bind=engine)
+    # Use checkfirst=True to only create tables that don't exist
+    Base.metadata.create_all(bind=engine, checkfirst=True)
+
     db = SessionLocal()
     try:
         # Check if an admin user already exists
